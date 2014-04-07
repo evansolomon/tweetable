@@ -64,13 +64,13 @@ module.exports = function (api, access, type, params) {
       })
     }
 
-    response                                       .on('error', handleError)
+    response                                      .on('error', handleError)
       .pipe(sculpt.split(twitterConfig.delimiter)).on('error', handleError)
       // https://dev.twitter.com/docs/streaming-apis/messages#Blank_lines
       .pipe(sculpt.filter(function (line) {
         return !! line.trim()
-      }))                                          .on('error', handleError)
-      .pipe(sculpt.map(JSON.parse))                .on('error', handleError)
+      }))                                         .on('error', handleError)
+      .pipe(sculpt.map(JSON.parse))               .on('error', handleError)
       .pipe(tweetable)
   }).on('error', handleError)
 
