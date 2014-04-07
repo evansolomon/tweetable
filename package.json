@@ -1,7 +1,7 @@
 {
-  "name": "tweetstream",
-  "version": "0.0.1",
-  "description": "Readable streams for Twitter public streaming API's.",
+  "name": "tweetable",
+  "version": "0.0.2",
+  "description": "Readable streams for Twitter streaming API's.",
   "main": "index.js",
   "author": "Evan Solomon",
   "license": "MIT",

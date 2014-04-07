@@ -6,18 +6,8 @@ var sculpt = require('sculpt')
 var OAuth = require('oauth').OAuth
 
 var config = {
-  oauth: {
-    version: '1.0',
-    signatureMethod: 'HMAC-SHA1',
-  },
-  twitter: {
-    protocol: 'https',
-    host: 'stream.twitter.com',
-    version: '1.1',
-    endpoint: 'statuses',
-    format: 'json',
-    delimiter: '\r\n'
-  }
+  twitter: require('./config/twitter'),
+  oauth: require('./config/oauth')
 }
 
 /**
@@ -29,29 +19,30 @@ var config = {
  * @param {object} access Twitter oAuth access credentials.
  * @param {string} access.token oAuth access token.
  * @param {string} access.secret oAuth access key.
- * @param {string} type Public stream API type.
- * @param {object=} params Params for stream, only used for filter streams.
+ * @param {string} type Stream API type.
+ * @param {object=} params Params for stream, only used for filter and user streams.
  *
  * @return {stream.PassThrough} Stream of matching tweet objects.
  */
 module.exports = function (api, access, type, params) {
-  var tweetStream = new PassThrough({objectMode: true})
-  var handleError = tweetStream.emit.bind(tweetStream, 'error')
+  var tweetable = new PassThrough({objectMode: true})
+  var handleError = tweetable.emit.bind(tweetable, 'error')
 
+  var oauthConfig = config.oauth()
   var oauth = new OAuth(
     null,                        // Request URL, not used
     null,                        // Access URL, not used
     api.key,                     // Twitter API key
     api.secret,                  // Twitter API secret
-    config.oauth.version,
+    oauthConfig.version,
     null,                        // Callback URL, not used
-    config.oauth.signatureMethod
+    oauthConfig.signatureMethod
   )
 
-  var twitter = config.twitter
+  var twitterConfig = config.twitter(type)
   var opts = {
-    host: twitter.host,
-    path: '/' + twitter.version + '/' + twitter.endpoint + '/' + type + '.' + twitter.format,
+    host: twitterConfig.host,
+    path: twitterConfig.path,
     headers: {}
   }
 
@@ -59,7 +50,7 @@ module.exports = function (api, access, type, params) {
     opts.path += '?' + querystring.stringify(params)
   }
 
-  var url = config.twitter.protocol + '://' + opts.host + opts.path
+  var url = twitterConfig.protocol + '://' + opts.host + opts.path
   var auth = oauth.authHeader(url, access.token, access.secret)
   opts.headers.Authorization = auth
 
@@ -74,10 +65,14 @@ module.exports = function (api, access, type, params) {
     }
 
     response                                       .on('error', handleError)
-      .pipe(sculpt.split(config.twitter.delimiter)).on('error', handleError)
+      .pipe(sculpt.split(twitterConfig.delimiter)).on('error', handleError)
+      // https://dev.twitter.com/docs/streaming-apis/messages#Blank_lines
+      .pipe(sculpt.filter(function (line) {
+        return !! line.trim()
+      }))                                          .on('error', handleError)
       .pipe(sculpt.map(JSON.parse))                .on('error', handleError)
-      .pipe(tweetStream)
+      .pipe(tweetable)
   }).on('error', handleError)
 
-  return tweetStream
+  return tweetable
 }
